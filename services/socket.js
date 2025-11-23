@@ -1,0 +1,32 @@
+const SOCKET_URL = 'http://192.168.18.180:3000';
+
+class SocketService {
+  constructor() {
+    this.socket = null;
+  }
+
+  connect(userId) {
+    this.socket = io(SOCKET_URL, {
+      transports: ['websocket'],
+      reconnection: true,
+    });
+    
+    this.socket.on('connect', () => {
+      console.log('✅ Socket connected');
+      this.socket.emit('join_user_room', userId);
+    });
+
+    this.socket.on('vital_alert', (data) => {
+      console.log('🚨 Alert received:', data);
+      // Handle alert in your app
+    });
+  }
+
+  disconnect() {
+    if (this.socket) {
+      this.socket.disconnect();
+    }
+  }
+}
+
+export default new SocketService();
