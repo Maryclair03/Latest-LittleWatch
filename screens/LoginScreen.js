@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import messaging from '@react-native-firebase/messaging';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -47,9 +48,37 @@ export default function LoginScreen({ navigation }) {
         await AsyncStorage.setItem('token', data.data.token);
         await AsyncStorage.setItem('userName', data.data.name);
 
+        // Get and save FCM token to backend
+        try {
+          const fcmToken = await messaging().getToken();
+          if (fcmToken) {
+            console.log('FCM Token obtained:', fcmToken);
+            
+            // Send FCM token to backend
+            const fcmResponse = await fetch('http://192.168.18.180:3000/api/user/fcm-token', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${data.data.token}`,
+              },
+              body: JSON.stringify({ fcmToken }),
+            });
+
+            const fcmData = await fcmResponse.json();
+            if (fcmData.success) {
+              console.log('FCM token saved to server successfully');
+            } else {
+              console.error('Failed to save FCM token:', fcmData.message);
+            }
+          }
+        } catch (fcmError) {
+          console.error('Error updating FCM token:', fcmError);
+          // Don't block login if FCM fails
+        }
+
         Alert.alert('Success', 'Login successful');
 
-        // Navigate to Home screen (replace 'Home' with your main screen)
+        // Navigate to Home screen
         navigation.replace('BandTracker');
       } else {
         Alert.alert('Login Failed', data.message || 'Invalid credentials');
@@ -138,8 +167,6 @@ export default function LoginScreen({ navigation }) {
           >
             <Text style={styles.loginButtonText}>Log In</Text>
           </TouchableOpacity>
-
-
 
           {/* Sign Up Link */}
           <View style={styles.signupContainer}>

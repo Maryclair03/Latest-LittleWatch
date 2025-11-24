@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import messaging from '@react-native-firebase/messaging';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import screens
 import OnboardingScreen from './screens/OnboardingScreen';
@@ -23,6 +24,7 @@ import SleepPatternsScreen from './screens/SleepPatternsScreen';
 import ParentAccountScreen from './screens/ParentAccountScreen';
 import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import BandTrackingScreen from './screens/BandTrackerScreen';
+import { userAPI } from './services/api';
 
 // Prevent auto-hiding right away
 SplashScreen.preventAutoHideAsync();
@@ -40,7 +42,7 @@ export default function App() {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
         );
-        
+
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
           console.log('Android notification permission granted');
           return true;
@@ -49,7 +51,7 @@ export default function App() {
           return false;
         }
       }
-      
+
       // For iOS
       const authStatus = await messaging().requestPermission();
       const enabled =
@@ -59,7 +61,7 @@ export default function App() {
       if (enabled) {
         console.log('iOS authorization status:', authStatus);
       }
-      
+
       return enabled;
     } catch (error) {
       console.error('Error requesting permission:', error);
@@ -72,7 +74,28 @@ export default function App() {
     try {
       const token = await messaging().getToken();
       console.log('FCM Token:', token);
-      // TODO: Send this token to your backend server
+
+      // Check if user is logged in before sending FCM token
+      const authToken = await AsyncStorage.getItem('token');
+      
+      if (!authToken) {
+        console.log('⚠️ No auth token found, FCM token will be sent on next login');
+        return token;
+      }
+
+      // Send token to backend
+      try {
+        await userAPI.updateFCMToken(token);
+        console.log('✅ FCM token saved to server successfully');
+      } catch (error) {
+        // Check if error is due to expired/invalid token
+        if (error.response?.status === 403 || error.response?.status === 401) {
+          console.log('⚠️ Auth token expired, FCM token will be sent on next login');
+        } else {
+          console.error('❌ Failed to save FCM token to server:', error.message);
+        }
+      }
+
       return token;
     } catch (error) {
       console.error('Error getting FCM token:', error);
@@ -94,7 +117,6 @@ export default function App() {
       const unsubscribe = messaging().onMessage(async remoteMessage => {
         console.log('Foreground notification received:', remoteMessage);
         
-        // Display alert or custom notification
         Alert.alert(
           remoteMessage.notification?.title || 'New Notification',
           remoteMessage.notification?.body || 'You have a new message',
@@ -102,27 +124,41 @@ export default function App() {
         );
       });
 
-      // Handle notification when app is opened from background
       messaging().onNotificationOpenedApp(remoteMessage => {
         console.log('Notification opened app from background:', remoteMessage);
-        // TODO: Navigate to specific screen based on notification data
-        // Example: navigation.navigate('Notifications');
       });
 
-      // Check if app was opened from a notification (quit state)
       messaging()
         .getInitialNotification()
         .then(remoteMessage => {
           if (remoteMessage) {
             console.log('Notification opened app from quit state:', remoteMessage);
-            // TODO: Navigate to specific screen based on notification data
           }
         });
 
       // Listen for token refresh
-      const unsubscribeTokenRefresh = messaging().onTokenRefresh(token => {
+      const unsubscribeTokenRefresh = messaging().onTokenRefresh(async token => {
         console.log('FCM token refreshed:', token);
-        // TODO: Send updated token to your backend
+        
+        // Check if user is logged in
+        const authToken = await AsyncStorage.getItem('token');
+        
+        if (!authToken) {
+          console.log('⚠️ No auth token, refreshed FCM token will be sent on next login');
+          return;
+        }
+
+        // Send updated token to backend
+        try {
+          await userAPI.updateFCMToken(token);
+          console.log('✅ Refreshed FCM token saved to server');
+        } catch (error) {
+          if (error.response?.status === 403 || error.response?.status === 401) {
+            console.log('⚠️ Auth token expired, refreshed FCM token will be sent on next login');
+          } else {
+            console.error('❌ Failed to save refreshed FCM token:', error.message);
+          }
+        }
       });
 
       return () => {
@@ -142,11 +178,10 @@ export default function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Background message handler (must be outside component)
+  // Background message handler
   useEffect(() => {
     const unsubscribe = messaging().setBackgroundMessageHandler(async remoteMessage => {
       console.log('Background notification received:', remoteMessage);
-      // Handle background notification
     });
 
     return unsubscribe;
@@ -173,8 +208,8 @@ export default function App() {
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="AdditionalInfo" component={AdditionalInfoScreen} />
-        <Stack.Screen 
-          name="SuccessModal" 
+        <Stack.Screen
+          name="SuccessModal"
           component={SuccessModalScreen}
           options={{
             presentation: 'transparentModal',
@@ -182,11 +217,11 @@ export default function App() {
           }}
         />
         <Stack.Screen name="Login" component={LoginScreen} />
-        
+
         {/* Main App */}
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="BandTracker" component={BandTrackingScreen} />
-        
+
         {/* Vital Details */}
         <Stack.Screen name="HeartRateDetail" component={HeartRateDetailScreen} />
         <Stack.Screen name="TemperatureDetail" component={TemperatureDetailScreen} />
@@ -194,13 +229,13 @@ export default function App() {
 
         {/* Sleep Pattern */}
         <Stack.Screen name="SleepPatterns" component={SleepPatternsScreen} options={{ title: 'Sleep Patterns' }} />
-        
+
         <Stack.Screen name="ParentAccount" component={ParentAccountScreen} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-        
-        <Stack.Screen name="VitalsTimeline" component={VitalsTimelineScreen} /> 
-        <Stack.Screen name="Notifications" component={NotificationsScreen} /> 
-        <Stack.Screen name="Settings" component={SettingsScreen} /> 
+
+        <Stack.Screen name="VitalsTimeline" component={VitalsTimelineScreen} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

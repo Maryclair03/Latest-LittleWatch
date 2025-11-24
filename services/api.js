@@ -16,7 +16,7 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await AsyncStorage.getItem('token'); // Changed from 'userToken' to 'token'
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -43,6 +43,11 @@ api.interceptors.response.use(
 export const authAPI = {
   signup: (data) => api.post('/auth/signup', data),
   login: (data) => api.post('/auth/login', data),
+};
+
+// User APIs
+export const userAPI = {
+  updateFCMToken: (fcmToken) => api.put('/user/fcm-token', { fcmToken }),
 };
 
 // Device APIs
