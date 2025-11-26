@@ -33,7 +33,7 @@ export default function LoginScreen({ navigation }) {
     }
 
     try {
-      const response = await fetch('http://192.168.18.180:3000/api/user/login', {
+      const response = await fetch('https://little-watch-backend.onrender.com/api/user/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -55,7 +55,7 @@ export default function LoginScreen({ navigation }) {
             console.log('FCM Token obtained:', fcmToken);
             
             // Send FCM token to backend
-            const fcmResponse = await fetch('http://192.168.18.180:3000/api/user/fcm-token', {
+            const fcmResponse = await fetch('https://little-watch-backend.onrender.com/api/user/fcm-token', {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingVertical: 5,
     marginBottom: 20,
   },
   input: {

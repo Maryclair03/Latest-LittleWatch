@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  BackHandler,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,8 +15,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import io from 'socket.io-client';
 
-const API_URL = 'http://192.168.18.180:3000/api';
-const SOCKET_URL = 'http://192.168.18.180:3000';
+const API_URL = 'https://little-watch-backend.onrender.com/api';
+const SOCKET_URL = 'https://little-watch-backend.onrender.com';
 
 export default function HomeScreen({ navigation }) {
   const [heartRate, setHeartRate] = useState(0);
@@ -34,6 +35,14 @@ export default function HomeScreen({ navigation }) {
 
   const socket = useRef(null);
 
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      return true; // Prevent default back action
+    });
+
+    return () => backHandler.remove();
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       fetchUserAndVitals();
@@ -51,7 +60,7 @@ export default function HomeScreen({ navigation }) {
   const connectSocket = useCallback(async (userIdParam, deviceSerialParam) => {
     try {
       console.log('Connecting to Socket.IO...', SOCKET_URL);
-      
+
       // Create socket connection
       socket.current = io(SOCKET_URL, {
         transports: ['websocket'],
@@ -106,7 +115,7 @@ export default function HomeScreen({ navigation }) {
 
   const updateVitalsFromSocket = (data) => {
     const { vitals, device } = data;
-    
+
     setHeartRate(vitals.heart_rate || 0);
     setTemperature(vitals.temperature || 0);
     setOxygenSaturation(vitals.oxygen_saturation || 0);
@@ -321,12 +330,12 @@ export default function HomeScreen({ navigation }) {
                 {deviceConnected ? 'Connected' : 'Disconnected'}
               </Text>
             </View>
-            {deviceConnected && (
+            {/* {deviceConnected && (
               <View style={styles.deviceStatusItem}>
                 <Ionicons name="battery-half" size={16} color="#666" />
                 <Text style={styles.deviceStatusText}>{batteryLevel}%</Text>
               </View>
-            )}
+            )} */}
           </View>
           {deviceSerial && (
             <Text style={styles.deviceSerialText}>Device: {deviceSerial}</Text>

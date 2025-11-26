@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { View, Image, StyleSheet, Platform, PermissionsAndroid, Alert } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,6 +33,8 @@ const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const isAlertShowing = useRef(false);
+  const messageUnsubscribeRef = useRef(null);
 
   // Request notification permissions
   async function requestUserPermission() {
@@ -44,10 +46,10 @@ export default function App() {
         );
 
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          console.log('Android notification permission granted');
+          console.log('✅ Android notification permission granted');
           return true;
         } else {
-          console.log('Android notification permission denied');
+          console.log('❌ Android notification permission denied');
           return false;
         }
       }
@@ -59,12 +61,12 @@ export default function App() {
         authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
       if (enabled) {
-        console.log('iOS authorization status:', authStatus);
+        console.log('✅ iOS authorization status:', authStatus);
       }
 
       return enabled;
     } catch (error) {
-      console.error('Error requesting permission:', error);
+      console.error('❌ Error requesting permission:', error);
       return false;
     }
   }
@@ -73,7 +75,7 @@ export default function App() {
   async function getFCMToken() {
     try {
       const token = await messaging().getToken();
-      console.log('FCM Token:', token);
+      console.log('🔑 FCM Token:', token);
 
       // Check if user is logged in before sending FCM token
       const authToken = await AsyncStorage.getItem('token');
@@ -98,13 +100,51 @@ export default function App() {
 
       return token;
     } catch (error) {
-      console.error('Error getting FCM token:', error);
+      console.error('❌ Error getting FCM token:', error);
     }
   }
+
+  // Handle foreground notification with debouncing
+  const handleForegroundNotification = (remoteMessage) => {
+    // Prevent multiple alerts at once
+    if (isAlertShowing.current) {
+      console.log('⚠️ Alert already showing, skipping notification');
+      return;
+    }
+
+    console.log('📬 Foreground notification received:', remoteMessage);
+
+    isAlertShowing.current = true;
+
+    const title = remoteMessage.notification?.title || 'New Notification';
+    const body = remoteMessage.notification?.body || 'You have a new message';
+
+    Alert.alert(
+      title,
+      body,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            console.log('✅ Alert dismissed');
+            isAlertShowing.current = false;
+          }
+        }
+      ],
+      {
+        cancelable: false, // Prevent dismissing by tapping outside
+        onDismiss: () => {
+          isAlertShowing.current = false;
+        }
+      }
+    );
+  };
 
   useEffect(() => {
     // Setup Firebase messaging
     const setupFirebaseMessaging = async () => {
+      console.log('🔥 Setting up Firebase messaging...');
+
       // Request permission
       const hasPermission = await requestUserPermission();
       
@@ -113,32 +153,28 @@ export default function App() {
         await getFCMToken();
       }
 
-      // Handle foreground notifications
-      const unsubscribe = messaging().onMessage(async remoteMessage => {
-        console.log('Foreground notification received:', remoteMessage);
-        
-        Alert.alert(
-          remoteMessage.notification?.title || 'New Notification',
-          remoteMessage.notification?.body || 'You have a new message',
-          [{ text: 'OK' }]
-        );
-      });
+      // Handle foreground notifications - store unsubscribe function
+      messageUnsubscribeRef.current = messaging().onMessage(handleForegroundNotification);
 
+      // Handle notification that opened the app from background
       messaging().onNotificationOpenedApp(remoteMessage => {
-        console.log('Notification opened app from background:', remoteMessage);
+        console.log('📱 Notification opened app from background:', remoteMessage);
+        // You can navigate to a specific screen here if needed
       });
 
+      // Handle notification that opened the app from quit state
       messaging()
         .getInitialNotification()
         .then(remoteMessage => {
           if (remoteMessage) {
-            console.log('Notification opened app from quit state:', remoteMessage);
+            console.log('📱 Notification opened app from quit state:', remoteMessage);
+            // You can navigate to a specific screen here if needed
           }
         });
 
       // Listen for token refresh
       const unsubscribeTokenRefresh = messaging().onTokenRefresh(async token => {
-        console.log('FCM token refreshed:', token);
+        console.log('🔄 FCM token refreshed:', token);
         
         // Check if user is logged in
         const authToken = await AsyncStorage.getItem('token');
@@ -162,12 +198,14 @@ export default function App() {
       });
 
       return () => {
-        unsubscribe();
+        if (messageUnsubscribeRef.current) {
+          messageUnsubscribeRef.current();
+        }
         unsubscribeTokenRefresh();
       };
     };
 
-    setupFirebaseMessaging();
+    const cleanup = setupFirebaseMessaging();
 
     // Splash screen timer
     const timer = setTimeout(async () => {
@@ -175,17 +213,17 @@ export default function App() {
       await SplashScreen.hideAsync();
     }, 3000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      cleanup.then(cleanupFn => cleanupFn && cleanupFn());
+    };
   }, []);
 
-  // Background message handler
-  useEffect(() => {
-    const unsubscribe = messaging().setBackgroundMessageHandler(async remoteMessage => {
-      console.log('Background notification received:', remoteMessage);
-    });
-
-    return unsubscribe;
-  }, []);
+  // Background message handler - must be outside component
+  messaging().setBackgroundMessageHandler(async remoteMessage => {
+    console.log('📭 Background notification received:', remoteMessage);
+    // Handle the notification in the background
+  });
 
   if (showSplash) {
     return (

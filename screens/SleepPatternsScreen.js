@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -14,6 +16,8 @@ export default function SleepPatternsScreen() {
     { date: 'Nov 9', hours: 7.4 },
   ]);
 
+  const navigation = useNavigation();
+
   const averageSleep = (
     sleepData.reduce((sum, d) => sum + d.hours, 0) / sleepData.length
   ).toFixed(1);
@@ -24,8 +28,13 @@ export default function SleepPatternsScreen() {
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <Text style={styles.headerTitle}>Sleep Patterns</Text>
+        <View style={styles.headerContainer}>
+          {/* Header */}
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#0091EA" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Sleep Patterns</Text>
+        </View>
 
         {/* Average Sleep Card */}
         <View style={styles.card}>
@@ -91,12 +100,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 30,
   },
+  headerContainer: {
+    flexDirection: 'row',
+    marginVertical: 20
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: '600',
     color: '#0091EA',
     textAlign: 'center',
-    marginVertical: 20,
+    paddingLeft: 20
   },
   card: {
     backgroundColor: '#FFFFFF',

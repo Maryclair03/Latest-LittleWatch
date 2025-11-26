@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // YOUR SERVER IP
-const API_BASE_URL = 'http://192.168.18.180:3000/api';
+const API_BASE_URL = 'https://little-watch-backend.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -21,6 +21,7 @@ export default function SettingsScreen({ navigation }) {
   const [vibration, setVibration] = useState(true);
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdatingNotification, setIsUpdatingNotification] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -47,6 +48,8 @@ export default function SettingsScreen({ navigation }) {
 
       if (data.success) {
         setProfile(data.data);
+        // Set notification state from profile
+        setPushNotifications(data.data.notification_enabled !== false);
       } else {
         Alert.alert('Error', data.message || 'Failed to fetch profile');
       }
@@ -55,6 +58,43 @@ export default function SettingsScreen({ navigation }) {
       Alert.alert('Error', 'Failed to load profile');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const togglePushNotifications = async (value) => {
+    try {
+      setIsUpdatingNotification(true);
+      setPushNotifications(value);
+
+      const token = await AsyncStorage.getItem('token');
+
+      const response = await fetch(`${API_URL}/user/notification-settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          notificationEnabled: value,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log('✅ Notification settings updated:', value ? 'Enabled' : 'Disabled');
+      } else {
+        // Revert on failure
+        setPushNotifications(!value);
+        Alert.alert('Error', data.message || 'Failed to update notification settings');
+      }
+    } catch (error) {
+      console.error('Toggle notifications error:', error);
+      // Revert on error
+      setPushNotifications(!value);
+      Alert.alert('Error', 'Failed to update notification settings');
+    } finally {
+      setIsUpdatingNotification(false);
     }
   };
 
@@ -104,6 +144,28 @@ export default function SettingsScreen({ navigation }) {
     </TouchableOpacity>
   );
 
+  const SettingToggleItem = ({ icon, title, subtitle, value, onValueChange, disabled }) => (
+    <View style={styles.settingItem}>
+      <View style={styles.settingLeft}>
+        <View style={styles.settingIcon}>
+          <Ionicons name={icon} size={22} color="#0091EA" />
+        </View>
+        <View style={styles.settingText}>
+          <Text style={styles.settingTitle}>{title}</Text>
+          {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+        </View>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        disabled={disabled}
+        trackColor={{ false: '#D1D5DB', true: '#0091EA' }}
+        thumbColor={value ? '#FFFFFF' : '#F3F4F6'}
+        ios_backgroundColor="#D1D5DB"
+      />
+    </View>
+  );
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -132,9 +194,24 @@ export default function SettingsScreen({ navigation }) {
             <Ionicons name="person" size={40} color="#0091EA" />
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{profile?.name || 'User'}</Text>
+            <Text style={styles.profileName}>{profile?.full_name || profile?.name || 'User'}</Text>
             <Text style={styles.profileEmail}>{profile?.email || 'email@example.com'}</Text>
           </View>
+        </View>
+
+        {/* Notifications Settings */}
+        <Text style={styles.sectionTitle}>Notifications</Text>
+        <View style={styles.settingsGroup}>
+          <SettingToggleItem
+            icon="notifications-outline"
+            title="Push Notifications"
+            subtitle={pushNotifications 
+              ? "Receive vital alerts from your device" 
+              : "You will not receive vital alerts"}
+            value={pushNotifications}
+            onValueChange={togglePushNotifications}
+            disabled={isUpdatingNotification}
+          />
         </View>
 
         {/* Account Settings */}

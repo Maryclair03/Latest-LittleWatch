@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,83 +6,108 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+
+const API_URL = 'https://little-watch-backend.onrender.com';
 
 export default function NotificationsScreen({ navigation }) {
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'warning',
-      title: 'Temperature Alert',
-      message: 'Baby\'s temperature is above normal range (37.8°C)',
-      time: '5 minutes ago',
-      read: false,
-      icon: 'thermometer',
-      color: '#FF9800',
-    },
-    {
-      id: 2,
-      type: 'info',
-      title: 'Device Connected',
-      message: 'LittleWatch Band successfully connected',
-      time: '1 hour ago',
-      read: false,
-      icon: 'checkmark-circle',
-      color: '#4CAF50',
-    },
-    {
-      id: 3,
-      type: 'critical',
-      title: 'Oxygen Level Low',
-      message: 'Oxygen saturation dropped to 93%',
-      time: '2 hours ago',
-      read: true,
-      icon: 'water',
-      color: '#FF5252',
-    },
-    {
-      id: 4,
-      type: 'info',
-      title: 'Sleep Pattern',
-      message: 'Baby has been sleeping for 2 hours',
-      time: '3 hours ago',
-      read: true,
-      icon: 'moon',
-      color: '#9C27B0',
-    },
-    {
-      id: 5,
-      type: 'warning',
-      title: 'Low Battery',
-      message: 'Band battery is at 15%, please charge',
-      time: '5 hours ago',
-      read: true,
-      icon: 'battery-dead',
-      color: '#FF9800',
-    },
-    {
-      id: 6,
-      type: 'info',
-      title: 'Heart Rate Normal',
-      message: 'Heart rate returned to normal range',
-      time: 'Yesterday',
-      read: true,
-      icon: 'heart',
-      color: '#4CAF50',
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const markAsRead = (id) => {
-    setNotifications(notifications.map(notif => 
-      notif.id === id ? { ...notif, read: true } : notif
-    ));
+  // Fetch notifications when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchNotifications();
+    }, [])
+  );
+
+  const fetchNotifications = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      
+      const response = await fetch(`${API_URL}/api/notifications`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setNotifications(data.data);
+      } else {
+        Alert.alert('Error', data.message || 'Failed to load notifications');
+      }
+    } catch (error) {
+      console.error('Fetch notifications error:', error);
+      Alert.alert('Error', 'Failed to load notifications');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(notif => ({ ...notif, read: true })));
-    Alert.alert('Success', 'All notifications marked as read');
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchNotifications();
+  };
+
+  const markAsRead = async (id) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      
+      const response = await fetch(`${API_URL}/api/notifications/${id}/read`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update local state
+        setNotifications(notifications.map(notif => 
+          notif.id === id ? { ...notif, read: true } : notif
+        ));
+      }
+    } catch (error) {
+      console.error('Mark as read error:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      
+      const response = await fetch(`${API_URL}/api/notifications/read-all`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setNotifications(notifications.map(notif => ({ ...notif, read: true })));
+        Alert.alert('Success', 'All notifications marked as read');
+      }
+    } catch (error) {
+      console.error('Mark all as read error:', error);
+      Alert.alert('Error', 'Failed to mark all as read');
+    }
   };
 
   const clearAll = () => {
@@ -94,13 +119,46 @@ export default function NotificationsScreen({ navigation }) {
         {
           text: 'Clear All',
           style: 'destructive',
-          onPress: () => setNotifications([]),
+          onPress: async () => {
+            try {
+              const token = await AsyncStorage.getItem('token');
+              
+              const response = await fetch(`${API_URL}/api/notifications/clear-all`, {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+
+              const data = await response.json();
+
+              if (data.success) {
+                setNotifications([]);
+                Alert.alert('Success', 'All notifications cleared');
+              }
+            } catch (error) {
+              console.error('Clear all error:', error);
+              Alert.alert('Error', 'Failed to clear notifications');
+            }
+          },
         },
       ]
     );
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0091EA" />
+          <Text style={styles.loadingText}>Loading notifications...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -120,12 +178,12 @@ export default function NotificationsScreen({ navigation }) {
             </View>
           )}
         </View>
-        <TouchableOpacity 
+        {/* <TouchableOpacity 
           style={styles.moreButton}
           onPress={() => Alert.alert('Options', 'Notification settings')}
         >
           <Ionicons name="ellipsis-vertical" size={24} color="#0091EA" />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
 
       {/* Action Buttons */}
@@ -134,9 +192,19 @@ export default function NotificationsScreen({ navigation }) {
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={markAllAsRead}
+            disabled={unreadCount === 0}
           >
-            <Ionicons name="checkmark-done" size={18} color="#0091EA" />
-            <Text style={styles.actionButtonText}>Mark all read</Text>
+            <Ionicons 
+              name="checkmark-done" 
+              size={18} 
+              color={unreadCount === 0 ? '#CCC' : '#0091EA'} 
+            />
+            <Text style={[
+              styles.actionButtonText, 
+              unreadCount === 0 && { color: '#CCC' }
+            ]}>
+              Mark all read
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.actionButton}
@@ -151,6 +219,14 @@ export default function NotificationsScreen({ navigation }) {
       <ScrollView 
         style={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#0091EA']}
+            tintColor="#0091EA"
+          />
+        }
       >
         {notifications.length === 0 ? (
           <View style={styles.emptyState}>
@@ -220,6 +296,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#E6F7FF',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
   },
   header: {
     flexDirection: 'row',

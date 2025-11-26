@@ -1,4 +1,4 @@
-const SOCKET_URL = 'http://192.168.18.180:3000';
+const SOCKET_URL = 'https://little-watch-backend.onrender.com';
 
 class SocketService {
   constructor() {

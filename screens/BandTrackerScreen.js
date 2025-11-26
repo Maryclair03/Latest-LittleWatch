@@ -7,13 +7,14 @@ import {
     Alert,
     Modal,
     ActivityIndicator,
+    BackHandler
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'http://192.168.18.180:3000/api';
+const API_URL = 'https://little-watch-backend.onrender.com/api';
 
 export default function BandTrackerScreen({ navigation }) {
     const [permission, requestPermission] = useCameraPermissions();
@@ -22,6 +23,15 @@ export default function BandTrackerScreen({ navigation }) {
     const [isLoading, setIsLoading] = useState(false);
     const [connectedDevice, setConnectedDevice] = useState(null);
 
+
+    useEffect(() => {
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+            return true; // Prevent default back action
+        });
+
+        return () => backHandler.remove();
+    }, []);
+    
     useEffect(() => {
         checkConnectedDevice();
     }, []);

@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 
-const API_URL = 'http://192.168.18.180:3000/api';
+const API_URL = 'https://little-watch-backend.onrender.com/api';
 
 export default function SignupScreen({ navigation }) {
   const [name, setName] = useState('');
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingVertical: 5,
     marginBottom: 20,
   },
   input: {

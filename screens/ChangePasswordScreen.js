@@ -52,7 +52,7 @@ export default function ChangePasswordScreen({ navigation }) {
       console.log('🔐 Attempting to change password...');
 
       // Call backend API
-      const response = await fetch('http://192.168.18.180:3000/api/user/change-password', {
+      const response = await fetch('https://little-watch-backend.onrender.com/api/user/change-password', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

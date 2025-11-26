@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  TextInput, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
   ScrollView,
   Alert,
-  ActivityIndicator 
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,7 +17,7 @@ export default function ParentAccountScreen({ navigation }) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
+
   const [userData, setUserData] = useState({
     name: '',
     email: '',
@@ -39,8 +39,8 @@ export default function ParentAccountScreen({ navigation }) {
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem('token');
-      
-      const response = await fetch('http://192.168.18.180:3000/api/user/profile', {
+
+      const response = await fetch('https://little-watch-backend.onrender.com/api/user/profile', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -52,7 +52,7 @@ export default function ParentAccountScreen({ navigation }) {
 
       if (data.success) {
         setUserData({
-          name: data.data.name || '',
+          name: data.data.full_name || '',
           email: data.data.email || '',
           phoneNumber: data.data.phone_number || '',
           countryCode: data.data.country_code || '+63',
@@ -86,25 +86,39 @@ export default function ParentAccountScreen({ navigation }) {
       setSaving(true);
       const token = await AsyncStorage.getItem('token');
 
-      const response = await fetch('http://192.168.18.180:3000/api/user/profile', {
+      // Only send the fields that were actually edited
+      const updatePayload = {};
+      if (editedData.name && editedData.name !== userData.name) {
+        updatePayload.name = editedData.name;
+      }
+
+      // If no changes were made
+      if (Object.keys(updatePayload).length === 0) {
+        Alert.alert('Info', 'No changes to save');
+        setIsEditing(false);
+        setSaving(false);
+        return;
+      }
+
+      const response = await fetch('https://little-watch-backend.onrender.com/api/user/profile', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(editedData),
+        body: JSON.stringify(updatePayload),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setUserData({ ...userData, ...editedData });
+        setUserData({ ...userData, ...updatePayload });
         setIsEditing(false);
         Alert.alert('Success', 'Profile updated successfully');
-        
+
         // Update stored name if changed
-        if (editedData.name) {
-          await AsyncStorage.setItem('userName', editedData.name);
+        if (updatePayload.name) {
+          await AsyncStorage.setItem('userName', updatePayload.name);
         }
       } else {
         Alert.alert('Error', data.message || 'Failed to update profile');
@@ -150,7 +164,7 @@ export default function ParentAccountScreen({ navigation }) {
             <Ionicons name="arrow-back" size={24} color="#0091EA" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Parent Account</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               if (isEditing) {
                 handleSave();
@@ -163,10 +177,10 @@ export default function ParentAccountScreen({ navigation }) {
             {saving ? (
               <ActivityIndicator size="small" color="#0091EA" />
             ) : (
-              <Ionicons 
-                name={isEditing ? "checkmark" : "create-outline"} 
-                size={24} 
-                color="#0091EA" 
+              <Ionicons
+                name={isEditing ? "checkmark" : "create-outline"}
+                size={24}
+                color="#0091EA"
               />
             )}
           </TouchableOpacity>
@@ -192,6 +206,7 @@ export default function ParentAccountScreen({ navigation }) {
                 value={editedData.name}
                 onChangeText={(text) => setEditedData({ ...editedData, name: text })}
                 placeholder="Name"
+                placeholderTextColor={'#ccc'}
               />
             ) : (
               <Text style={styles.infoText}>{userData.name}</Text>
@@ -203,119 +218,7 @@ export default function ParentAccountScreen({ navigation }) {
             <Ionicons name="mail-outline" size={22} color="#0091EA" />
             <Text style={styles.infoText}>{userData.email}</Text>
           </View>
-
-          {/* Phone
-          <View style={styles.infoRow}>
-            <Ionicons name="call-outline" size={22} color="#0091EA" />
-            {isEditing ? (
-              <View style={styles.phoneContainer}>
-                <TextInput
-                  style={[styles.input, styles.countryCodeInput]}
-                  value={editedData.countryCode}
-                  onChangeText={(text) => setEditedData({ ...editedData, countryCode: text })}
-                  placeholder="+63"
-                  keyboardType="phone-pad"
-                />
-                <TextInput
-                  style={[styles.input, styles.phoneInput]}
-                  value={editedData.phoneNumber}
-                  onChangeText={(text) => setEditedData({ ...editedData, phoneNumber: text })}
-                  placeholder="Phone Number"
-                  keyboardType="phone-pad"
-                />
-              </View>
-            ) : (
-              <Text style={styles.infoText}>
-                {userData.countryCode} {userData.phoneNumber || 'Not provided'}
-              </Text>
-            )}
-          </View>
-
-          {/* Gender */}
-          {/* <View style={styles.infoRow}>
-            <Ionicons name="male-female-outline" size={22} color="#0091EA" />
-            {isEditing ? (
-              <View style={styles.genderContainer}>
-                {['Male', 'Female', 'Other'].map((gender) => (
-                  <TouchableOpacity
-                    key={gender}
-                    style={[
-                      styles.genderButton,
-                      editedData.gender === gender && styles.genderButtonActive
-                    ]}
-                    onPress={() => setEditedData({ ...editedData, gender })}
-                  >
-                    <Text
-                      style={[
-                        styles.genderText,
-                        editedData.gender === gender && styles.genderTextActive
-                      ]}
-                    >
-                      {gender}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : (
-              <Text style={styles.infoText}>{userData.gender || 'Not provided'}</Text>
-            )}
-          </View> */}
-
-          {/* Date of Birth */}
-          {/* <View style={styles.infoRow}>
-            <Ionicons name="calendar-outline" size={22} color="#0091EA" />
-            {isEditing ? (
-              <TextInput
-                style={styles.input}
-                value={editedData.dateOfBirth}
-                onChangeText={(text) => setEditedData({ ...editedData, dateOfBirth: text })}
-                placeholder="YYYY-MM-DD"
-              />
-            ) : (
-              <Text style={styles.infoText}>
-                {userData.dateOfBirth ? new Date(userData.dateOfBirth).toLocaleDateString() : 'Not provided'}
-              </Text>
-            )}
-          </View> */}
-
-          {/* Country */}
-          {/* <View style={styles.infoRow}>
-            <Ionicons name="flag-outline" size={22} color="#0091EA" />
-            {isEditing ? (
-              <TextInput
-                style={styles.input}
-                value={editedData.country}
-                onChangeText={(text) => setEditedData({ ...editedData, country: text })}
-                placeholder="Country"
-              />
-            ) : (
-              <Text style={styles.infoText}>{userData.country || 'Not provided'}</Text>
-            )}
-          </View> */}
-
-          {/* Address */}
-          {/* <View style={styles.infoRow}>
-            <Ionicons name="location-outline" size={22} color="#0091EA" />
-            {isEditing ? (
-              <TextInput
-                style={[styles.input, styles.addressInput]}
-                value={editedData.address}
-                onChangeText={(text) => setEditedData({ ...editedData, address: text })}
-                placeholder="Address"
-                multiline
-              />
-            ) : (
-              <Text style={styles.infoText}>{userData.address || 'Not provided'}</Text>
-            )}
-          </View> */}
         </View>
-
-        {/* Cancel Button (shown when editing) */}
-        {/* {isEditing && (
-          <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        )} */}
 
         {/* Change Password Button */}
         <TouchableOpacity

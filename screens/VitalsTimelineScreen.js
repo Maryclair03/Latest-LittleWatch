@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 
-const API_URL = 'http://192.168.18.180:3000/api'; // ← UPDATE THIS TO YOUR SERVER IP
+const API_URL = 'https://little-watch-backend.onrender.com/api'; // ← UPDATE THIS TO YOUR SERVER IP
 const PAGE_SIZE = 20; // Load 20 items at a time
 
 export default function VitalsTimelineScreen({ navigation }) {
