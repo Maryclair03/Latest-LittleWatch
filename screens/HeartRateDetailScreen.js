@@ -29,7 +29,7 @@ export default function HeartRateDetailScreen({ navigation, route }) {
     if ((hr >= 80 && hr <= 89) || (hr >= 161 && hr <= 170)) {
       return { status: 'warning', label: 'Outside Ideal Range', color: '#FF9800' };
     }
-    // Normal: 90-160 bpm
+    // Normal: 90-160 bpms
     return { status: 'normal', label: 'Normal Range', color: '#4CAF50' };
   };
 
