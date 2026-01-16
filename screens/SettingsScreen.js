@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'http://192.168.18.180:3000/api';
+const API_URL = 'https://little-watch-backend.onrender.com/api';
 
 export default function SettingsScreen({ navigation }) {
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -49,7 +49,8 @@ export default function SettingsScreen({ navigation }) {
       if (data.success) {
         setProfile(data.data);
         // Set notification state from profile
-        setPushNotifications(data.data.notification_enabled !== false);
+        setPushNotifications(data.data.notification_enabled === true);
+        console.log('📱 Profile loaded, notification_enabled:', data.data.notification_enabled);
       } else {
         Alert.alert('Error', data.message || 'Failed to fetch profile');
       }
@@ -62,11 +63,32 @@ export default function SettingsScreen({ navigation }) {
   };
 
   const togglePushNotifications = async (value) => {
+    // Prevent multiple simultaneous calls
+    if (isUpdatingNotification) {
+      console.log('⚠️ Already updating, ignoring toggle');
+      return;
+    }
+
+    console.log('🔄 Toggling notifications to:', value);
+    
+    // Store the previous value in case we need to revert
+    const previousValue = pushNotifications;
+    
     try {
       setIsUpdatingNotification(true);
+      // Optimistically update UI
       setPushNotifications(value);
 
       const token = await AsyncStorage.getItem('token');
+      
+      if (!token) {
+        console.error('❌ No token found');
+        setPushNotifications(previousValue);
+        Alert.alert('Error', 'Please login again');
+        return;
+      }
+
+      console.log('📤 Sending request to update notification settings...');
 
       const response = await fetch(`${API_URL}/user/notification-settings`, {
         method: 'PUT',
@@ -79,20 +101,28 @@ export default function SettingsScreen({ navigation }) {
         }),
       });
 
+      console.log('📥 Response status:', response.status);
+
       const data = await response.json();
+      console.log('📥 Response data:', data);
 
       if (data.success) {
-        console.log('✅ Notification settings updated:', value ? 'Enabled' : 'Disabled');
+        console.log('✅ Notification settings updated successfully');
+        setProfile(prev => ({
+          ...prev,
+          notification_enabled: value
+        }));
       } else {
+        console.error('❌ API returned error:', data.message);
         // Revert on failure
-        setPushNotifications(!value);
+        setPushNotifications(previousValue);
         Alert.alert('Error', data.message || 'Failed to update notification settings');
       }
     } catch (error) {
-      console.error('Toggle notifications error:', error);
-      // Revert on error
-      setPushNotifications(!value);
-      Alert.alert('Error', 'Failed to update notification settings');
+      console.error('❌ Network error:', error);
+      // Revert on failure
+      setPushNotifications(previousValue);
+      Alert.alert('Error', 'Failed to update notification settings. Please check your connection.');
     } finally {
       setIsUpdatingNotification(false);
     }
@@ -109,20 +139,32 @@ export default function SettingsScreen({ navigation }) {
             const token = await AsyncStorage.getItem('token');
 
             if (token) {
+              // Call backend logout (optional - just for logging)
               await fetch(`${API_URL}/user/logout`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   Authorization: `Bearer ${token}`,
                 },
-              });
+              }).catch(() => { }); // Don't block logout if API fails
             }
 
-            await AsyncStorage.removeItem('token');
-            navigation.replace('Onboarding');
+            // Clear all stored data
+            await AsyncStorage.multiRemove(['token', 'userName']);
+
+            // Reset navigation stack completely
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Onboarding' }],
+            });
           } catch (error) {
             console.error('Logout error:', error);
-            Alert.alert('Error', 'Failed to logout. Try again.');
+            // Still try to clear token and navigate even if there's an error
+            await AsyncStorage.multiRemove(['token', 'userName']).catch(() => { });
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Onboarding' }],
+            });
           }
         },
       },
@@ -145,7 +187,7 @@ export default function SettingsScreen({ navigation }) {
   );
 
   const SettingToggleItem = ({ icon, title, subtitle, value, onValueChange, disabled }) => (
-    <View style={styles.settingItem}>
+    <View style={[styles.settingItem, disabled && styles.settingItemDisabled]}>
       <View style={styles.settingLeft}>
         <View style={styles.settingIcon}>
           <Ionicons name={icon} size={22} color="#0091EA" />
@@ -155,14 +197,23 @@ export default function SettingsScreen({ navigation }) {
           {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
         </View>
       </View>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        disabled={disabled}
-        trackColor={{ false: '#D1D5DB', true: '#0091EA' }}
-        thumbColor={value ? '#FFFFFF' : '#F3F4F6'}
-        ios_backgroundColor="#D1D5DB"
-      />
+      <View style={styles.switchContainer}>
+        {disabled && (
+          <ActivityIndicator 
+            size="small" 
+            color="#0091EA" 
+            style={styles.switchLoader} 
+          />
+        )}
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          disabled={disabled}
+          trackColor={{ false: '#D1D5DB', true: '#0091EA' }}
+          thumbColor={value ? '#FFFFFF' : '#F3F4F6'}
+          ios_backgroundColor="#D1D5DB"
+        />
+      </View>
     </View>
   );
 
@@ -205,11 +256,11 @@ export default function SettingsScreen({ navigation }) {
           <SettingToggleItem
             icon="notifications-outline"
             title="Push Notifications"
-            subtitle={pushNotifications 
-              ? "Receive vital alerts from your device" 
+            subtitle={pushNotifications
+              ? "Receive vital alerts from your device"
               : "You will not receive vital alerts"}
             value={pushNotifications}
-            onValueChange={togglePushNotifications}
+            onValueChange={(newValue) => togglePushNotifications(newValue)}
             disabled={isUpdatingNotification}
           />
         </View>
@@ -320,6 +371,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F5F5F5',
   },
+  settingItemDisabled: {
+    opacity: 0.7,
+  },
   settingLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   settingIcon: {
     width: 40,
@@ -333,6 +387,13 @@ const styles = StyleSheet.create({
   settingText: { flex: 1 },
   settingTitle: { fontSize: 15, fontWeight: '600', color: '#333', marginBottom: 2 },
   settingSubtitle: { fontSize: 13, color: '#999' },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  switchLoader: {
+    marginRight: 8,
+  },
   dangerItem: { backgroundColor: '#FFF5F5' },
   dangerIcon: { backgroundColor: '#FFEBEE' },
   dangerText: { color: '#FF5252' },

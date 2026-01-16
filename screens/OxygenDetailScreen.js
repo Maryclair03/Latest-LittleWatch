@@ -10,19 +10,40 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function OxygenDetailScreen({ navigation, route }) {
-  const { value = 98 } = route.params || {};
-  
-  
-  const getStatus = () => {
-  if (value < 94) return { text: 'Below Normal - Alert', color: '#FF5252' };
-  if (value >= 94 && value < 95) return { text: 'Borderline', color: '#FF9800' };
-  if (value >= 95 && value <= 100) return { text: 'Normal Range', color: '#4CAF50' };
-  if (value > 100) return { text: 'Above Normal (If not on O₂)', color: '#FF9800' };
-  return { text: 'Normal', color: '#4CAF50' };
-};
+  const { value = 0 } = route.params || {};
 
+  // Get status based on oxygen value (matching the threshold table)
+  const getOxygenStatus = (spo2) => {
+    if (spo2 === null || spo2 === undefined || spo2 === 0) {
+      return { status: 'normal', label: 'No Reading', color: '#4CAF50' };
+    }
+    // Critical: <90%
+    if (spo2 < 90) {
+      return { status: 'critical', label: 'Critical', color: '#FF5252' };
+    }
+    // Warning: 90-94%
+    if (spo2 >= 90 && spo2 <= 94) {
+      return { status: 'warning', label: 'Slightly Low', color: '#FF9800' };
+    }
+    // Normal: 95-100%
+    return { status: 'normal', label: 'Normal Range', color: '#4CAF50' };
+  };
 
-  const status = getStatus();
+  const oxygenStatus = getOxygenStatus(value);
+
+  // Get icon color based on status
+  const getIconColor = () => {
+    if (oxygenStatus.status === 'critical') return '#FF5252';
+    if (oxygenStatus.status === 'warning') return '#FF9800';
+    return '#0091EA';
+  };
+
+  // Get icon container background based on status
+  const getIconContainerStyle = () => {
+    if (oxygenStatus.status === 'critical') return styles.iconContainerCritical;
+    if (oxygenStatus.status === 'warning') return styles.iconContainerWarning;
+    return styles.iconContainerNormal;
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -44,37 +65,39 @@ export default function OxygenDetailScreen({ navigation, route }) {
       >
         {/* Current Value Card */}
         <View style={styles.currentCard}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="water" size={48} color="#00BCD4" />
+          <View style={[styles.iconContainer, getIconContainerStyle()]}>
+            <Ionicons name="water" size={48} color={getIconColor()} />
           </View>
-          <Text style={styles.currentValue}>{value}</Text>
+          <Text style={[styles.currentValue, { color: getIconColor() }]}>
+            {value || '--'}
+          </Text>
           <Text style={styles.currentUnit}>% SpO₂</Text>
-          <View style={[styles.statusBadge, { backgroundColor: status.color + '20' }]}>
-            <Text style={[styles.statusText, { color: status.color }]}>{status.text}</Text>
+          <View style={[
+            styles.statusBadge,
+            oxygenStatus.status === 'critical' && styles.statusBadgeCritical,
+            oxygenStatus.status === 'warning' && styles.statusBadgeWarning,
+          ]}>
+            <Text style={[styles.statusText, { color: oxygenStatus.color }]}>
+              {oxygenStatus.label}
+            </Text>
           </View>
         </View>
 
-        
-
         {/* Reference Information */}
-<View style={styles.infoCard}>
-  <Text style={styles.infoTitle}>Normal Oxygen Saturation</Text>
-  <Text style={styles.infoText}>
-    • Normal Range: 95%–100%{'\n'}
-    • Borderline: 94%{'\n'}
-    • Alert Low: Below 94% (Hypoxemia){'\n'}
-    • Alert High: Above 100% (if not on oxygen support)
-  </Text>
-  <Text style={styles.warningText}>
-    ⚠️ If oxygen saturation drops below 95% consistently or below 90% at any time,
-    seek immediate medical attention.
-  </Text>
-  <Text style={styles.infoNote}>
-    Note: Brief dips during movement or sleep position changes are normal. Persistent
-    low readings require medical evaluation.
-  </Text>
-</View>
-
+        <View style={styles.infoCard}>
+          <Text style={styles.infoTitle}>Normal Oxygen Saturation for Infants</Text>
+          <Text style={styles.infoText}>
+            • Normal Range: 95% – 100%{'\n'}
+            • Borderline: 90% – 94%{'\n'}
+            • Alert Low: Below 90% (Hypoxemia)
+          </Text>
+          <Text style={styles.warningText}>
+            If oxygen saturation drops below 90% at any time, seek immediate medical attention.
+          </Text>
+          <Text style={styles.infoNote}>
+            Note: Brief dips during movement or sleep position changes are normal. Persistent low readings require medical evaluation.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -126,15 +149,23 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#E0F7FA',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
+  iconContainerNormal: {
+    backgroundColor: '#E3F2FD',
+  },
+  iconContainerWarning: {
+    backgroundColor: '#FFF3E0',
+  },
+  iconContainerCritical: {
+    backgroundColor: '#FFEBEE',
+  },
   currentValue: {
     fontSize: 56,
     fontWeight: '700',
-    color: '#00BCD4',
+    color: '#0091EA',
   },
   currentUnit: {
     fontSize: 18,
@@ -142,9 +173,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   statusBadge: {
+    backgroundColor: '#E8F5E9',
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
+  },
+  statusBadgeWarning: {
+    backgroundColor: '#FFF3E0',
+  },
+  statusBadgeCritical: {
+    backgroundColor: '#FFEBEE',
   },
   statusText: {
     fontSize: 14,
@@ -212,7 +250,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   infoCard: {
-    backgroundColor: '#E0F7FA',
+    backgroundColor: '#E3F2FD',
     borderRadius: 20,
     padding: 20,
     marginBottom: 20,
@@ -220,7 +258,7 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#00BCD4',
+    color: '#0091EA',
     marginBottom: 12,
   },
   infoText: {

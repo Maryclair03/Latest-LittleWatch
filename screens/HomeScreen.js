@@ -212,25 +212,71 @@ export default function HomeScreen({ navigation }) {
     setRefreshing(false);
   };
 
-  const getVitalStatus = (type, value) => {
-    if (value === null || value === undefined || value === 0) {
-      return 'normal';
+  // Status functions matching the detail screens
+  const getHeartRateStatus = (hr) => {
+    if (hr === null || hr === undefined || hr === 0) {
+      return { status: 'normal', color: '#0091EA' };
     }
+    // Critical: <80 bpm OR >170 bpm
+    if (hr < 80 || hr > 170) {
+      return { status: 'critical', color: '#FF5252' };
+    }
+    // Warning: 80-89 bpm OR 161-170 bpm
+    if ((hr >= 80 && hr <= 89) || (hr >= 161 && hr <= 170)) {
+      return { status: 'warning', color: '#FF9800' };
+    }
+    // Normal: 90-160 bpm
+    return { status: 'normal', color: '#0091EA' };
+  };
 
+  const getTemperatureStatus = (temp) => {
+    if (temp === null || temp === undefined || temp === 0) {
+      return { status: 'normal', color: '#0091EA' };
+    }
+    // Critical: <35.5°C OR >=38.0°C
+    if (temp < 35.5 || temp >= 38.0) {
+      return { status: 'critical', color: '#FF5252' };
+    }
+    // Warning: 35.5-35.9°C OR 37.6-37.9°C
+    if ((temp >= 35.5 && temp <= 35.9) || (temp >= 37.6 && temp <= 37.9)) {
+      return { status: 'warning', color: '#FF9800' };
+    }
+    // Normal: 36.0-37.5°C
+    return { status: 'normal', color: '#0091EA' };
+  };
+
+  const getOxygenStatus = (spo2) => {
+    if (spo2 === null || spo2 === undefined || spo2 === 0) {
+      return { status: 'normal', color: '#0091EA' };
+    }
+    // Critical: <90%
+    if (spo2 < 90) {
+      return { status: 'critical', color: '#FF5252' };
+    }
+    // Warning: 90-94%
+    if (spo2 >= 90 && spo2 <= 94) {
+      return { status: 'warning', color: '#FF9800' };
+    }
+    // Normal: 95-100%
+    return { status: 'normal', color: '#0091EA' };
+  };
+
+  const getVitalStatus = (type, value) => {
     switch (type) {
       case 'heart':
-        return value >= 100 && value <= 160 ? 'normal' : 'warning';
+        return getHeartRateStatus(value);
       case 'temp':
-        return value >= 36.5 && value <= 37.5 ? 'normal' : 'warning';
+        return getTemperatureStatus(value);
       case 'oxygen':
-        return value >= 95 ? 'normal' : 'warning';
+        return getOxygenStatus(value);
       default:
-        return 'normal';
+        return { status: 'normal', color: '#0091EA' };
     }
   };
 
   const VitalCard = ({ icon, title, value, unit, type, onPress }) => {
-    const status = getVitalStatus(type, value);
+    const vitalStatus = getVitalStatus(type, value);
+    const isWarningOrCritical = vitalStatus.status === 'warning' || vitalStatus.status === 'critical';
 
     let displayValue = '--';
     if (value !== null && value !== undefined && value !== 0) {
@@ -245,15 +291,23 @@ export default function HomeScreen({ navigation }) {
 
     return (
       <TouchableOpacity
-        style={[styles.vitalCard, status === 'warning' && value !== 0 && styles.vitalCardWarning]}
+        style={[
+          styles.vitalCard,
+          isWarningOrCritical && { borderWidth: 2, borderColor: vitalStatus.color }
+        ]}
         onPress={onPress}
         activeOpacity={0.7}
       >
-        <View style={[styles.vitalIconContainer, status === 'warning' && value !== 0 && styles.vitalIconWarning]}>
-          <Ionicons name={icon} size={28} color={status === 'warning' && value !== 0 ? '#FF5252' : '#0091EA'} />
+        <View style={[
+          styles.vitalIconContainer,
+          isWarningOrCritical && {
+            backgroundColor: vitalStatus.status === 'critical' ? '#FFEBEE' : '#FFF3E0'
+          }
+        ]}>
+          <Ionicons name={icon} size={28} color={vitalStatus.color} />
         </View>
         <Text style={styles.vitalTitle}>{title}</Text>
-        <Text style={[styles.vitalValue, status === 'warning' && value !== 0 && styles.vitalValueWarning]}>
+        <Text style={[styles.vitalValue, { color: isWarningOrCritical ? vitalStatus.color : '#333' }]}>
           {displayValue}
         </Text>
         <Text style={styles.vitalUnit}>{unit}</Text>
@@ -584,7 +638,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  vitalCardWarning: { borderWidth: 2, borderColor: '#FF5252' },
   vitalIconContainer: {
     width: 56,
     height: 56,
@@ -594,12 +647,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  vitalIconWarning: {
-    backgroundColor: '#FFEBEE',
-  },
   vitalTitle: { fontSize: 12, color: '#999', marginBottom: 4 },
   vitalValue: { fontSize: 24, fontWeight: '700', color: '#333' },
-  vitalValueWarning: { color: '#FF5252' },
   vitalUnit: { fontSize: 12, color: '#999', marginTop: 2 },
   actionsGrid: {
     flexDirection: 'row',

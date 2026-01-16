@@ -98,7 +98,7 @@ export default function VitalsTimelineScreen({ navigation }) {
 
       if (historyResult.success && historyResult.data) {
         const newReadings = historyResult.data.readings || [];
-        
+
         if (reset) {
           // First load - replace all data
           setTimelineData(newReadings);
@@ -151,10 +151,10 @@ export default function VitalsTimelineScreen({ navigation }) {
   const handleScroll = (event) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const paddingToBottom = 20;
-    
+
     // Check if user scrolled to bottom
-    const isCloseToBottom = 
-      layoutMeasurement.height + contentOffset.y >= 
+    const isCloseToBottom =
+      layoutMeasurement.height + contentOffset.y >=
       contentSize.height - paddingToBottom;
 
     if (isCloseToBottom && hasMoreData && !isLoadingMore) {
@@ -164,28 +164,53 @@ export default function VitalsTimelineScreen({ navigation }) {
 
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
+
+    // Get hours and minutes directly from UTC since backend already adjusted to Philippine time
+    let hours = date.getUTCHours();
+    const minutes = date.getUTCMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+
+    // Convert to 12-hour format
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+
+    // Format minutes with leading zero
+    const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+
+    return `${hours}:${minutesStr} ${ampm}`;
   };
 
   const formatDate = (timestamp) => {
     const date = new Date(timestamp);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
 
-    if (date.toDateString() === today.toDateString()) {
+    // Get today and yesterday in Philippine time (UTC+8)
+    const now = new Date();
+    const philippineOffset = 8 * 60 * 60 * 1000;
+    const nowPhilippine = new Date(now.getTime() + philippineOffset + (now.getTimezoneOffset() * 60 * 1000));
+
+    const yesterdayPhilippine = new Date(nowPhilippine);
+    yesterdayPhilippine.setDate(yesterdayPhilippine.getDate() - 1);
+
+    // Get the date parts from UTC (since backend already adjusted)
+    const dateDay = date.getUTCDate();
+    const dateMonth = date.getUTCMonth();
+    const dateYear = date.getUTCFullYear();
+
+    const todayDay = nowPhilippine.getDate();
+    const todayMonth = nowPhilippine.getMonth();
+    const todayYear = nowPhilippine.getFullYear();
+
+    const yesterdayDay = yesterdayPhilippine.getDate();
+    const yesterdayMonth = yesterdayPhilippine.getMonth();
+    const yesterdayYear = yesterdayPhilippine.getFullYear();
+
+    if (dateDay === todayDay && dateMonth === todayMonth && dateYear === todayYear) {
       return 'Today';
-    } else if (date.toDateString() === yesterday.toDateString()) {
+    } else if (dateDay === yesterdayDay && dateMonth === yesterdayMonth && dateYear === yesterdayYear) {
       return 'Yesterday';
     } else {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      });
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${months[dateMonth]} ${dateDay}`;
     }
   };
 
@@ -342,7 +367,7 @@ export default function VitalsTimelineScreen({ navigation }) {
               {timelineData.length} loaded
             </Text>
           </View>
-          
+
           {timelineData.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="time-outline" size={64} color="#CCC" />
@@ -420,11 +445,11 @@ export default function VitalsTimelineScreen({ navigation }) {
                 <View style={styles.endOfDataContainer}>
                   <View style={styles.endOfDataLine} />
                   <Text style={styles.endOfDataText}>
-                    {selectedPeriod === '24H' 
+                    {selectedPeriod === '24H'
                       ? 'No more data in last 24 hours'
                       : selectedPeriod === '1W'
-                      ? 'No more data in last week'
-                      : 'No more data in last month'}
+                        ? 'No more data in last week'
+                        : 'No more data in last month'}
                   </Text>
                   <View style={styles.endOfDataLine} />
                 </View>

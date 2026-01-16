@@ -26,20 +26,38 @@ import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import BandTrackingScreen from './screens/BandTrackerScreen';
 import { userAPI } from './services/api';
 
-// Prevent auto-hiding right away
 SplashScreen.preventAutoHideAsync();
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [initialRoute, setInitialRoute] = useState('Onboarding');
+  const [isReady, setIsReady] = useState(false);
   const isAlertShowing = useRef(false);
   const messageUnsubscribeRef = useRef(null);
+
+  // Check if user is already logged in
+  const checkAuthStatus = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      
+      if (token) {
+        console.log('✅ Found existing token, user is logged in');
+        setInitialRoute('Home'); // or 'BandTracker' if that's your main screen
+      } else {
+        console.log('ℹ️ No token found, showing onboarding');
+        setInitialRoute('Onboarding');
+      }
+    } catch (error) {
+      console.error('❌ Error checking auth status:', error);
+      setInitialRoute('Onboarding');
+    }
+  };
 
   // Request notification permissions
   async function requestUserPermission() {
     try {
-      // For Android 13+ (API 33+)
       if (Platform.OS === 'android' && Platform.Version >= 33) {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
@@ -54,7 +72,6 @@ export default function App() {
         }
       }
 
-      // For iOS
       const authStatus = await messaging().requestPermission();
       const enabled =
         authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
@@ -77,7 +94,6 @@ export default function App() {
       const token = await messaging().getToken();
       console.log('🔑 FCM Token:', token);
 
-      // Check if user is logged in before sending FCM token
       const authToken = await AsyncStorage.getItem('token');
       
       if (!authToken) {
@@ -85,12 +101,10 @@ export default function App() {
         return token;
       }
 
-      // Send token to backend
       try {
         await userAPI.updateFCMToken(token);
         console.log('✅ FCM token saved to server successfully');
       } catch (error) {
-        // Check if error is due to expired/invalid token
         if (error.response?.status === 403 || error.response?.status === 401) {
           console.log('⚠️ Auth token expired, FCM token will be sent on next login');
         } else {
@@ -104,9 +118,8 @@ export default function App() {
     }
   }
 
-  // Handle foreground notification with debouncing
+  // Handle foreground notification
   const handleForegroundNotification = (remoteMessage) => {
-    // Prevent multiple alerts at once
     if (isAlertShowing.current) {
       console.log('⚠️ Alert already showing, skipping notification');
       return;
@@ -132,7 +145,7 @@ export default function App() {
         }
       ],
       {
-        cancelable: false, // Prevent dismissing by tapping outside
+        cancelable: false,
         onDismiss: () => {
           isAlertShowing.current = false;
         }
@@ -141,42 +154,36 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Setup Firebase messaging
-    const setupFirebaseMessaging = async () => {
+    const initialize = async () => {
+      // Check auth status first
+      await checkAuthStatus();
+
+      // Setup Firebase messaging
       console.log('🔥 Setting up Firebase messaging...');
 
-      // Request permission
       const hasPermission = await requestUserPermission();
       
       if (hasPermission) {
-        // Get FCM token
         await getFCMToken();
       }
 
-      // Handle foreground notifications - store unsubscribe function
       messageUnsubscribeRef.current = messaging().onMessage(handleForegroundNotification);
 
-      // Handle notification that opened the app from background
       messaging().onNotificationOpenedApp(remoteMessage => {
         console.log('📱 Notification opened app from background:', remoteMessage);
-        // You can navigate to a specific screen here if needed
       });
 
-      // Handle notification that opened the app from quit state
       messaging()
         .getInitialNotification()
         .then(remoteMessage => {
           if (remoteMessage) {
             console.log('📱 Notification opened app from quit state:', remoteMessage);
-            // You can navigate to a specific screen here if needed
           }
         });
 
-      // Listen for token refresh
       const unsubscribeTokenRefresh = messaging().onTokenRefresh(async token => {
         console.log('🔄 FCM token refreshed:', token);
         
-        // Check if user is logged in
         const authToken = await AsyncStorage.getItem('token');
         
         if (!authToken) {
@@ -184,7 +191,6 @@ export default function App() {
           return;
         }
 
-        // Send updated token to backend
         try {
           await userAPI.updateFCMToken(token);
           console.log('✅ Refreshed FCM token saved to server');
@@ -197,6 +203,15 @@ export default function App() {
         }
       });
 
+      // Mark as ready after auth check
+      setIsReady(true);
+
+      // Hide splash after 3 seconds
+      setTimeout(async () => {
+        setShowSplash(false);
+        await SplashScreen.hideAsync();
+      }, 3000);
+
       return () => {
         if (messageUnsubscribeRef.current) {
           messageUnsubscribeRef.current();
@@ -205,27 +220,16 @@ export default function App() {
       };
     };
 
-    const cleanup = setupFirebaseMessaging();
-
-    // Splash screen timer
-    const timer = setTimeout(async () => {
-      setShowSplash(false);
-      await SplashScreen.hideAsync();
-    }, 3000);
-
-    return () => {
-      clearTimeout(timer);
-      cleanup.then(cleanupFn => cleanupFn && cleanupFn());
-    };
+    initialize();
   }, []);
 
-  // Background message handler - must be outside component
+  // Background message handler
   messaging().setBackgroundMessageHandler(async remoteMessage => {
     console.log('📭 Background notification received:', remoteMessage);
-    // Handle the notification in the background
   });
 
-  if (showSplash) {
+  // Show splash while checking auth or during splash delay
+  if (showSplash || !isReady) {
     return (
       <LinearGradient colors={['#86d7fc', '#cffafc']} style={styles.container}>
         <Image source={require('./assets/Splash.png')} style={styles.logo} />
@@ -236,7 +240,7 @@ export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Onboarding"
+        initialRouteName={initialRoute}
         screenOptions={{
           headerShown: false,
           animation: 'slide_from_right',

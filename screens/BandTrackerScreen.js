@@ -197,10 +197,10 @@ export default function BandTrackerScreen({ navigation }) {
                             </View>
                             <View style={styles.connectedInfo}>
                                 <Text style={styles.connectedTitle}>LittleWatch Band</Text>
-                                <View style={styles.statusRow}>
+                                {/* <View style={styles.statusRow}>
                                     <View style={styles.statusDot} />
                                     <Text style={styles.statusText}>Connected</Text>
-                                </View>
+                                </View> */}
                             </View>
                         </View>
 
@@ -209,10 +209,10 @@ export default function BandTrackerScreen({ navigation }) {
                                 <Text style={styles.detailLabel}>Device Serial</Text>
                                 <Text style={styles.detailValue}>{connectedDevice.device_serial}</Text>
                             </View>
-                            <View style={styles.detailRow}>
+                            {/* <View style={styles.detailRow}>
                                 <Text style={styles.detailLabel}>Status</Text>
                                 <Text style={styles.detailValue}>Active</Text>
-                            </View>
+                            </View> */}
                         </View>
 
                         {/* Proceed to Tracking Button */}

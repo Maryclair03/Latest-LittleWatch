@@ -72,7 +72,7 @@ export default function SignupScreen({ navigation }) {
       }
     } catch (error) {
       console.error('Signup error:', error);
-      
+
       if (error.response) {
         // Server responded with an error
         const message = error.response.data.message || 'Signup failed';
@@ -113,11 +113,15 @@ export default function SignupScreen({ navigation }) {
           {/* Form */}
           <View style={styles.form}>
             {/* Name */}
-            <Text style={styles.label}>Name</Text>
+            <View style={{ flexDirection: 'row' }}>
+              <Text style={styles.label}>Name</Text>
+              <Text style={styles.labeldot}>*</Text>
+            </View>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
                 placeholder="Enter your name"
+                placeholderTextColor={'#c3c3c3ff'}
                 value={name}
                 onChangeText={setName}
                 autoCapitalize="words"
@@ -126,11 +130,15 @@ export default function SignupScreen({ navigation }) {
             </View>
 
             {/* Email */}
-            <Text style={styles.label}>Email</Text>
+            <View style={{ flexDirection: 'row' }}>
+              <Text style={styles.label}>Email</Text>
+              <Text style={styles.labeldot}>*</Text>
+            </View>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
                 placeholder="Enter your email"
+                placeholderTextColor={'#c3c3c3ff'}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -141,11 +149,15 @@ export default function SignupScreen({ navigation }) {
             </View>
 
             {/* Password */}
-            <Text style={styles.label}>Password</Text>
+            <View style={{ flexDirection: 'row' }}>
+              <Text style={styles.label}>Password</Text>
+              <Text style={styles.labeldot}>*</Text>
+            </View>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.inputWithIcon}
                 placeholder="Enter your password"
+                placeholderTextColor={'#c3c3c3ff'}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -162,11 +174,15 @@ export default function SignupScreen({ navigation }) {
             </View>
 
             {/* Confirm Password */}
-            <Text style={styles.label}>Confirm Password</Text>
+            <View style={{ flexDirection: 'row' }}>
+              <Text style={styles.label}>Confirm Password</Text>
+              <Text style={styles.labeldot}>*</Text>
+            </View>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.inputWithIcon}
                 placeholder="Re-enter your password"
+                placeholderTextColor={'#c3c3c3ff'}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry={!showConfirmPassword}
@@ -249,6 +265,12 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     color: '#000',
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  labeldot: {
+    fontSize: 14,
+    color: '#eb0404ff',
     marginBottom: 8,
     marginLeft: 4,
   },

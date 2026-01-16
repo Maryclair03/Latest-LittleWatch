@@ -53,7 +53,7 @@ export default function LoginScreen({ navigation }) {
           const fcmToken = await messaging().getToken();
           if (fcmToken) {
             console.log('FCM Token obtained:', fcmToken);
-            
+
             // Send FCM token to backend
             const fcmResponse = await fetch('https://little-watch-backend.onrender.com/api/user/fcm-token', {
               method: 'PUT',
@@ -120,11 +120,15 @@ export default function LoginScreen({ navigation }) {
           {/* Form */}
           <View style={styles.form}>
             {/* Email */}
-            <Text style={styles.label}>Email</Text>
+            <View style={{ flexDirection: 'row' }}>
+              <Text style={styles.label}>Email</Text>
+              <Text style={styles.labeldot}>*</Text>
+            </View>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
                 placeholder="name@example.com"
+                placeholderTextColor={'#c3c3c3ff'}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -134,11 +138,15 @@ export default function LoginScreen({ navigation }) {
             </View>
 
             {/* Password */}
-            <Text style={styles.label}>Password</Text>
+            <View style={{ flexDirection: 'row' }}>
+              <Text style={styles.label}>Password</Text>
+              <Text style={styles.labeldot}>*</Text>
+            </View>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.inputWithIcon}
                 placeholder="Enter your password"
+                placeholderTextColor={'#c3c3c3ff'}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -232,6 +240,12 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     color: '#000',
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  labeldot: {
+    fontSize: 14,
+    color: '#eb0404ff',
     marginBottom: 8,
     marginLeft: 4,
   },

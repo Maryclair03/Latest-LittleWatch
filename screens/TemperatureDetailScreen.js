@@ -10,20 +10,40 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function TemperatureDetailScreen({ navigation, route }) {
-  const { value = 36.8 } = route.params || {};
-  
- 
+  const { value = 0 } = route.params || {};
 
-  const getStatus = () => {
-    if (value < 36.0) return { text: 'Hypothermia', color: '#FF5252' };
-if (value > 37.8) return { text: 'Fever', color: '#FF5252' };
-if (value >= 36.0 && value < 36.5) return { text: 'Below Normal', color: '#FF9800' };
-if (value > 37.5 && value <= 37.8) return { text: 'Elevated', color: '#FF9800' };
-return { text: 'Normal Range', color: '#4CAF50' };
-
+  // Get status based on temperature value (matching the threshold table)
+  const getTemperatureStatus = (temp) => {
+    if (temp === null || temp === undefined || temp === 0) {
+      return { status: 'normal', label: 'No Reading', color: '#4CAF50' };
+    }
+    // Critical: <35.5°C OR >=38.0°C
+    if (temp < 35.5 || temp >= 38.0) {
+      return { status: 'critical', label: 'Critical', color: '#FF5252' };
+    }
+    // Warning: 35.5-35.9°C OR 37.6-37.9°C
+    if ((temp >= 35.5 && temp <= 35.9) || (temp >= 37.6 && temp <= 37.9)) {
+      return { status: 'warning', label: 'Outside Ideal Range', color: '#FF9800' };
+    }
+    // Normal: 36.0-37.5°C
+    return { status: 'normal', label: 'Normal Range', color: '#4CAF50' };
   };
 
-  const status = getStatus();
+  const tempStatus = getTemperatureStatus(value);
+
+  // Get icon color based on status
+  const getIconColor = () => {
+    if (tempStatus.status === 'critical') return '#FF5252';
+    if (tempStatus.status === 'warning') return '#FF9800';
+    return '#0091EA';
+  };
+
+  // Get icon container background based on status
+  const getIconContainerStyle = () => {
+    if (tempStatus.status === 'critical') return styles.iconContainerCritical;
+    if (tempStatus.status === 'warning') return styles.iconContainerWarning;
+    return styles.iconContainerNormal;
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -45,27 +65,33 @@ return { text: 'Normal Range', color: '#4CAF50' };
       >
         {/* Current Value Card */}
         <View style={styles.currentCard}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="thermometer" size={48} color="#FF9800" />
+          <View style={[styles.iconContainer, getIconContainerStyle()]}>
+            <Ionicons name="thermometer" size={48} color={getIconColor()} />
           </View>
-          <Text style={styles.currentValue}>{value}</Text>
+          <Text style={[styles.currentValue, { color: getIconColor() }]}>
+            {value ? Number(value).toFixed(1) : '--'}
+          </Text>
           <Text style={styles.currentUnit}>°C</Text>
-          <View style={[styles.statusBadge, { backgroundColor: status.color + '20' }]}>
-            <Text style={[styles.statusText, { color: status.color }]}>{status.text}</Text>
+          <View style={[
+            styles.statusBadge,
+            tempStatus.status === 'critical' && styles.statusBadgeCritical,
+            tempStatus.status === 'warning' && styles.statusBadgeWarning,
+          ]}>
+            <Text style={[styles.statusText, { color: tempStatus.color }]}>
+              {tempStatus.label}
+            </Text>
           </View>
         </View>
 
-
-
-
         {/* Reference Information */}
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Normal Temperature Range</Text>
+          <Text style={styles.infoTitle}>Normal Temperature Range for Infants</Text>
           <Text style={styles.infoText}>
-            • Normal: 36.5°C - 37.5°C (97.7°F - 99.5°F){'\n'}
-            • Elevated: 37.5°C - 38.5°C (99.5°F - 101.3°F){'\n'}
-            • Fever (0-3 months): ≥ 38.0°C (100.4°F){'\n'}
-            • Fever (3+ months): ≥ 38.5°C (101.3°F)
+            • Normal Range: 36.0°C – 37.5°C{'\n'}
+            • Borderline Low: 35.5°C – 35.9°C{'\n'}
+            • Borderline High: 37.6°C – 37.9°C{'\n'}
+            • Alert Low: Below 35.5°C (Hypothermia){'\n'}
+            • Alert High: 38.0°C and above (Fever)
           </Text>
           <Text style={styles.infoNote}>
             Note: Body temperature varies throughout the day and with activity. Consult your pediatrician if temperature is consistently abnormal.
@@ -122,15 +148,23 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#FFF3E0',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
+  iconContainerNormal: {
+    backgroundColor: '#E3F2FD',
+  },
+  iconContainerWarning: {
+    backgroundColor: '#FFF3E0',
+  },
+  iconContainerCritical: {
+    backgroundColor: '#FFEBEE',
+  },
   currentValue: {
     fontSize: 56,
     fontWeight: '700',
-    color: '#FF9800',
+    color: '#0091EA',
   },
   currentUnit: {
     fontSize: 18,
@@ -138,9 +172,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   statusBadge: {
+    backgroundColor: '#E8F5E9',
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
+  },
+  statusBadgeWarning: {
+    backgroundColor: '#FFF3E0',
+  },
+  statusBadgeCritical: {
+    backgroundColor: '#FFEBEE',
   },
   statusText: {
     fontSize: 14,
@@ -208,7 +249,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   infoCard: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: '#E3F2FD',
     borderRadius: 20,
     padding: 20,
     marginBottom: 20,
@@ -216,7 +257,7 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FF9800',
+    color: '#0091EA',
     marginBottom: 12,
   },
   infoText: {

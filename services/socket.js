@@ -5,12 +5,12 @@ class SocketService {
     this.socket = null;
   }
 
-  connect(userId) {
+  connect(userId, onVitalAlert) {
     this.socket = io(SOCKET_URL, {
       transports: ['websocket'],
       reconnection: true,
     });
-    
+
     this.socket.on('connect', () => {
       console.log('✅ Socket connected');
       this.socket.emit('join_user_room', userId);
@@ -18,7 +18,9 @@ class SocketService {
 
     this.socket.on('vital_alert', (data) => {
       console.log('🚨 Alert received:', data);
-      // Handle alert in your app
+      if (onVitalAlert) {
+        onVitalAlert(data); // Pass data to the callback
+      }
     });
   }
 
