@@ -52,7 +52,7 @@ export default function App() {
         }
       }
 
-      // For iOS
+      // For iOS and older Android versions
       const authStatus = await messaging().requestPermission();
       const enabled =
         authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
